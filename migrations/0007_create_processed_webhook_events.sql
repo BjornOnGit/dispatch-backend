@@ -1,0 +1,5 @@
+CREATE TABLE processed_webhook_events (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  event_id VARCHAR(255) NOT NULL UNIQUE,
+  processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

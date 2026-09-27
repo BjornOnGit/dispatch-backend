@@ -1,0 +1,9 @@
+CREATE TABLE users (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  role ENUM('customer', 'vendor', 'rider') NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

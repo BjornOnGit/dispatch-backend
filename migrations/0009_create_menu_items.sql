@@ -1,0 +1,8 @@
+CREATE TABLE menu_items (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  vendor_id CHAR(36) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (vendor_id) REFERENCES vendors(id)
+);

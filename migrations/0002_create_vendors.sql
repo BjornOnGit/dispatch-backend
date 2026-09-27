@@ -1,0 +1,9 @@
+CREATE TABLE vendors (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  user_id CHAR(36) NOT NULL,
+  business_name VARCHAR(255) NOT NULL,
+  address VARCHAR(255) NOT NULL,
+  is_online BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);

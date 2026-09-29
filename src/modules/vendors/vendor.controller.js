@@ -1,13 +1,7 @@
 const vendorService = require('./vendor.service');
 
 async function createMenuItem(req, res) {
-  const { name, price } = req.body || {};
-
-  if (!name || price === undefined) {
-    return res.status(400).json({
-      error: { message: 'name and price are required', code: 'VALIDATION_ERROR' },
-    });
-  }
+  const { name, price } = req.body;
 
   const item = await vendorService.createMenuItem({
     vendorId: req.params.id,
@@ -20,12 +14,12 @@ async function createMenuItem(req, res) {
 }
 
 async function listMenuItems(req, res) {
-  const items = await vendorService.listMenuItems(req.params.id);
+  const items = await vendorService.getMenuItems(req.params.id);
   res.status(200).json(items);
 }
 
 async function updateMenuItem(req, res) {
-  const { name, price } = req.body || {};
+  const { name, price } = req.body;
 
   const item = await vendorService.updateMenuItem({
     vendorId: req.params.id,
@@ -38,4 +32,17 @@ async function updateMenuItem(req, res) {
   res.status(200).json(item);
 }
 
-module.exports = { createMenuItem, listMenuItems, updateMenuItem };
+async function updateLocation(req, res) {
+  const { lat, lon } = req.body;
+
+  const vendor = await vendorService.updateLocation({
+    vendorId: req.params.id,
+    requestingUserId: req.user.id,
+    lat,
+    lon,
+  });
+
+  res.status(200).json(vendor);
+}
+
+module.exports = { createMenuItem, listMenuItems, updateMenuItem, updateLocation };

@@ -1,46 +1,57 @@
 const pool = require('../../config/database');
 const { hashPassword, verifyPassword, signToken } = require('./auth.service');
 
-const VALID_ROLES = ['customer', 'vendor', 'rider'];
-
+// Creates the users row, plus the matching vendors/riders profile row when the
+// role calls for one, in a single transaction — a vendor/rider account is
+// useless without its profile row, so the two must not be able to split.
 async function signup(req, res) {
-  const { role, name, phone, email, password } = req.body || {};
-
-  if (!role || !name || !phone || !email || !password) {
-    return res.status(400).json({
-      error: { message: 'role, name, phone, email, and password are required', code: 'VALIDATION_ERROR' },
-    });
-  }
-
-  if (!VALID_ROLES.includes(role)) {
-    return res.status(400).json({
-      error: { message: `role must be one of: ${VALID_ROLES.join(', ')}`, code: 'VALIDATION_ERROR' },
-    });
-  }
+  const { role, name, phone, email, password, businessName, address, vehicleType } = req.body;
 
   const passwordHash = await hashPassword(password);
+  const conn = await pool.getConnection();
 
-  await pool.query(
-    'INSERT INTO users (role, name, phone, email, password_hash) VALUES (?, ?, ?, ?, ?)',
-    [role, name, phone, email, passwordHash]
-  );
+  try {
+    await conn.beginTransaction();
 
-  const [rows] = await pool.query(
-    'SELECT id, role, name, phone, email, created_at FROM users WHERE email = ?',
-    [email]
-  );
+    await conn.query(
+      'INSERT INTO users (role, name, phone, email, password_hash) VALUES (?, ?, ?, ?, ?)',
+      [role, name, phone, email, passwordHash]
+    );
 
-  res.status(201).json(rows[0]);
+    const [userRows] = await conn.query(
+      'SELECT id, role, name, phone, email, created_at FROM users WHERE email = ?',
+      [email]
+    );
+    const user = userRows[0];
+
+    const profile = {};
+
+    if (role === 'vendor') {
+      await conn.query('INSERT INTO vendors (user_id, business_name, address) VALUES (?, ?, ?)', [
+        user.id,
+        businessName,
+        address,
+      ]);
+      const [vendorRows] = await conn.query('SELECT id FROM vendors WHERE user_id = ?', [user.id]);
+      profile.vendorId = vendorRows[0].id;
+    } else if (role === 'rider') {
+      await conn.query('INSERT INTO riders (user_id, vehicle_type) VALUES (?, ?)', [user.id, vehicleType]);
+      const [riderRows] = await conn.query('SELECT id FROM riders WHERE user_id = ?', [user.id]);
+      profile.riderId = riderRows[0].id;
+    }
+
+    await conn.commit();
+    res.status(201).json({ ...user, ...profile });
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
 async function login(req, res) {
-  const { email, password } = req.body || {};
-
-  if (!email || !password) {
-    return res.status(400).json({
-      error: { message: 'email and password are required', code: 'VALIDATION_ERROR' },
-    });
-  }
+  const { email, password } = req.body;
 
   const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
   const user = rows[0];

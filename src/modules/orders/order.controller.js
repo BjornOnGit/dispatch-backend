@@ -1,13 +1,7 @@
 const orderService = require('./order.service');
 
 async function createOrder(req, res) {
-  const { vendorId, totalAmount } = req.body || {};
-
-  if (!vendorId || totalAmount === undefined) {
-    return res.status(400).json({
-      error: { message: 'vendorId and totalAmount are required', code: 'VALIDATION_ERROR' },
-    });
-  }
+  const { vendorId, totalAmount } = req.body;
 
   const order = await orderService.createOrder({
     customerId: req.user.id,
@@ -19,7 +13,7 @@ async function createOrder(req, res) {
 }
 
 async function vendorResponse(req, res) {
-  const { action } = req.body || {};
+  const { action } = req.body;
 
   const updated = await orderService.respondToOrder({
     orderId: req.params.id,
@@ -41,7 +35,7 @@ async function getOrder(req, res) {
 }
 
 async function riderStatus(req, res) {
-  const { status } = req.body || {};
+  const { status } = req.body;
 
   const updated = await orderService.updateRiderStatus({
     orderId: req.params.id,
@@ -52,4 +46,13 @@ async function riderStatus(req, res) {
   res.status(200).json(updated);
 }
 
-module.exports = { createOrder, vendorResponse, getOrder, riderStatus };
+async function cancelOrder(req, res) {
+  const updated = await orderService.cancelOrder({
+    orderId: req.params.id,
+    customerId: req.user.id,
+  });
+
+  res.status(200).json(updated);
+}
+
+module.exports = { createOrder, vendorResponse, getOrder, riderStatus, cancelOrder };

@@ -60,6 +60,8 @@ async function getOrderHistory(orderId) {
   return rows;
 }
 
+// Returns the full order row after the write, matching createOrder/getOrderById,
+// so every order-returning endpoint has the same response shape.
 async function updateOrderStatus(orderId, newStatus) {
   const conn = await pool.getConnection();
 
@@ -82,8 +84,10 @@ async function updateOrderStatus(orderId, newStatus) {
       [orderId, fromStatus, newStatus]
     );
 
+    const [updatedRows] = await conn.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+
     await conn.commit();
-    return { id: orderId, status: newStatus, previousStatus: fromStatus };
+    return updatedRows[0];
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -92,6 +96,9 @@ async function updateOrderStatus(orderId, newStatus) {
   }
 }
 
+// Same shape guarantee as updateOrderStatus — returns the full row, not an
+// ad-hoc object, so a dispatched order looks identical whether it came back
+// from vendor-accept or from any other order-returning endpoint.
 async function assignRiderToOrder(orderId, riderId) {
   const conn = await pool.getConnection();
 
@@ -118,8 +125,10 @@ async function assignRiderToOrder(orderId, riderId) {
       [orderId, fromStatus, 'rider_assigned']
     );
 
+    const [updatedRows] = await conn.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+
     await conn.commit();
-    return { id: orderId, status: 'rider_assigned', riderId };
+    return updatedRows[0];
   } catch (err) {
     await conn.rollback();
     throw err;

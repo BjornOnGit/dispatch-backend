@@ -55,8 +55,13 @@ async function updateMenuItem(itemId, { name, price }) {
   return getMenuItemById(itemId);
 }
 
+async function updateLocation(vendorId, { lat, lon }) {
+  await pool.query('UPDATE vendors SET lat = ?, lon = ? WHERE id = ?', [lat, lon, vendorId]);
+}
+
 module.exports = {
   getVendorById,
+  updateLocation,
   createMenuItem,
   getMenuItems,
   getMenuItemById,

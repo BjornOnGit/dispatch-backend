@@ -10,6 +10,7 @@ const REQUIRED_VARS = [
   'REDIS_HOST',
   'REDIS_PORT',
   'JWT_SECRET',
+  'WEBHOOK_SECRET',
 ];
 
 function loadEnv() {
@@ -37,6 +38,10 @@ function loadEnv() {
       url: process.env.REDIS_URL,
     },
     jwtSecret: process.env.JWT_SECRET,
+    webhookSecret: process.env.WEBHOOK_SECRET,
+    orderTimeoutSeconds: Number(process.env.ORDER_TIMEOUT_SECONDS) || 30,
+    reassignMaxAttempts: Number(process.env.REASSIGN_MAX_ATTEMPTS) || 5,
+    reassignRetryDelaySeconds: Number(process.env.REASSIGN_RETRY_DELAY_SECONDS) || 15,
   };
 }
 

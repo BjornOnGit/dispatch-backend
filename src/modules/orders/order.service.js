@@ -2,6 +2,7 @@ const orderRepository = require('./order.repository');
 const { isValidTransition } = require('./order.state-machine');
 const HttpError = require('../../lib/http-error');
 const dispatchService = require('../riders/dispatch.service');
+const { scheduleOrderTimeout } = require('../../lib/queue');
 
 const ACTION_TO_STATUS = {
   accept: 'vendor_accepted',
@@ -43,6 +44,8 @@ async function respondToOrder({ orderId, vendorUserId, action }) {
   const updated = await orderRepository.updateOrderStatus(orderId, targetStatus);
 
   if (targetStatus === 'vendor_accepted') {
+    await scheduleOrderTimeout(orderId);
+
     const vendorLocation = await orderRepository.getVendorLocationById(vendorId);
 
     if (vendorLocation && vendorLocation.lat !== null && vendorLocation.lon !== null) {
@@ -110,7 +113,37 @@ async function updateRiderStatus({ orderId, riderUserId, toStatus }) {
     throw new HttpError(409, `Cannot transition from ${order.status} to ${toStatus}`, 'INVALID_TRANSITION');
   }
 
-  return orderRepository.updateOrderStatus(orderId, toStatus);
+  const updated = await orderRepository.updateOrderStatus(orderId, toStatus);
+
+  if (toStatus === 'delivered') {
+    await dispatchService.releaseRider(riderId);
+  }
+
+  return updated;
 }
 
-module.exports = { createOrder, respondToOrder, getOrderWithHistory, updateRiderStatus };
+async function cancelOrder({ orderId, customerId }) {
+  const order = await orderRepository.getOrderById(orderId);
+  if (!order) {
+    throw new HttpError(404, 'Order not found', 'NOT_FOUND');
+  }
+
+  if (order.customer_id !== customerId) {
+    throw new HttpError(403, 'You do not own this order', 'FORBIDDEN');
+  }
+
+  if (!isValidTransition(order.status, 'cancelled')) {
+    throw new HttpError(409, `Cannot cancel an order that is ${order.status}`, 'INVALID_TRANSITION');
+  }
+
+  const updated = await orderRepository.updateOrderStatus(orderId, 'cancelled');
+
+  // If a rider was already assigned, free them up for other orders
+  if (order.rider_id) {
+    await dispatchService.releaseRider(order.rider_id);
+  }
+
+  return updated;
+}
+
+module.exports = { createOrder, respondToOrder, getOrderWithHistory, updateRiderStatus, cancelOrder };

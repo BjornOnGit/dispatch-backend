@@ -14,7 +14,7 @@ async function createMenuItem(req, res) {
 }
 
 async function listMenuItems(req, res) {
-  const items = await vendorService.getMenuItems(req.params.id);
+  const items = await vendorService.listMenuItems(req.params.id);
   res.status(200).json(items);
 }
 

@@ -1,58 +1,59 @@
-const pool = require('../../config/database');
+const vendorRepository = require('./vendor.repository');
+const redis = require('../../config/redis');
+const HttpError = require('../../lib/http-error');
 
-async function getVendorById(vendorId) {
-  const [rows] = await pool.query('SELECT * FROM vendors WHERE id = ?', [vendorId]);
-  return rows[0] || null;
-}
+const MENU_CACHE_TTL_SECONDS = 60;
+const menuCacheKey = (vendorId) => `vendor:${vendorId}:menu-items`;
 
-async function createMenuItem(vendorId, { name, price }) {
-  await pool.query('INSERT INTO menu_items (vendor_id, name, price) VALUES (?, ?, ?)', [
-    vendorId,
-    name,
-    price,
-  ]);
-
-  const [rows] = await pool.query(
-    'SELECT * FROM menu_items WHERE vendor_id = ? ORDER BY created_at DESC LIMIT 1',
-    [vendorId]
-  );
-  return rows[0];
-}
-
-async function getMenuItems(vendorId) {
-  const [rows] = await pool.query(
-    'SELECT * FROM menu_items WHERE vendor_id = ? ORDER BY created_at ASC',
-    [vendorId]
-  );
-  return rows;
-}
-
-async function getMenuItemById(itemId) {
-  const [rows] = await pool.query('SELECT * FROM menu_items WHERE id = ?', [itemId]);
-  return rows[0] || null;
-}
-
-async function updateMenuItem(itemId, { name, price }) {
-  const fields = [];
-  const values = [];
-
-  if (name !== undefined) {
-    fields.push('name = ?');
-    values.push(name);
+async function assertOwnership(vendorId, requestingUserId) {
+  const vendor = await vendorRepository.getVendorById(vendorId);
+  if (!vendor) {
+    throw new HttpError(404, 'Vendor not found', 'NOT_FOUND');
   }
-  if (price !== undefined) {
-    fields.push('price = ?');
-    values.push(price);
+  if (vendor.user_id !== requestingUserId) {
+    throw new HttpError(403, 'You do not own this vendor profile', 'FORBIDDEN');
+  }
+}
+
+async function createMenuItem({ vendorId, requestingUserId, name, price }) {
+  await assertOwnership(vendorId, requestingUserId);
+  const item = await vendorRepository.createMenuItem(vendorId, { name, price });
+  await redis.del(menuCacheKey(vendorId));
+  return item;
+}
+
+async function listMenuItems(vendorId) {
+  const cacheKey = menuCacheKey(vendorId);
+  const cached = await redis.get(cacheKey);
+
+  if (cached) {
+    console.log(`[cache] hit for ${cacheKey}`);
+    return JSON.parse(cached);
   }
 
-  if (fields.length === 0) {
-    return getMenuItemById(itemId);
+  console.log(`[cache] miss for ${cacheKey}`);
+
+  const vendor = await vendorRepository.getVendorById(vendorId);
+  if (!vendor) {
+    throw new HttpError(404, 'Vendor not found', 'NOT_FOUND');
   }
 
-  values.push(itemId);
-  await pool.query(`UPDATE menu_items SET ${fields.join(', ')} WHERE id = ?`, values);
+  const items = await vendorRepository.getMenuItems(vendorId);
+  await redis.set(cacheKey, JSON.stringify(items), 'EX', MENU_CACHE_TTL_SECONDS);
+  return items;
+}
 
-  return getMenuItemById(itemId);
+async function updateMenuItem({ vendorId, itemId, requestingUserId, name, price }) {
+  await assertOwnership(vendorId, requestingUserId);
+
+  const item = await vendorRepository.getMenuItemById(itemId);
+  if (!item || item.vendor_id !== vendorId) {
+    throw new HttpError(404, 'Menu item not found', 'NOT_FOUND');
+  }
+
+  const updated = await vendorRepository.updateMenuItem(itemId, { name, price });
+  await redis.del(menuCacheKey(vendorId));
+  return updated;
 }
 
 async function updateLocation({ vendorId, requestingUserId, lat, lon }) {
@@ -61,4 +62,4 @@ async function updateLocation({ vendorId, requestingUserId, lat, lon }) {
   return vendorRepository.getVendorById(vendorId);
 }
 
-module.exports = { getVendorById, createMenuItem, getMenuItems, updateMenuItem, updateLocation };
+module.exports = { createMenuItem, listMenuItems, updateMenuItem, updateLocation };

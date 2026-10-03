@@ -59,17 +59,17 @@ npm test
 
 Copy `.env.example` to `.env` and fill in real values. Required unless marked optional:
 
-| Variable | Purpose |
-|---|---|
-| `PORT` | Port the API listens on |
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | MySQL connection |
-| `REDIS_HOST`, `REDIS_PORT` | Redis connection |
-| `REDIS_PASSWORD` | *(optional)* Redis auth, if your instance requires it |
-| `JWT_SECRET` | Signs/verifies auth tokens |
-| `WEBHOOK_SECRET` | HMAC key for validating payment webhook signatures |
-| `ORDER_TIMEOUT_SECONDS` | *(optional, default 30)* How long to wait for a rider before triggering reassignment |
-| `REASSIGN_MAX_ATTEMPTS` | *(optional, default 5)* How many times the reassignment worker retries before giving up |
-| `REASSIGN_RETRY_DELAY_SECONDS` | *(optional, default 15)* Delay between reassignment retries |
+| Variable                                                            | Purpose                                                                                   |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `PORT`                                                            | Port the API listens on                                                                   |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | MySQL connection                                                                          |
+| `REDIS_HOST`, `REDIS_PORT`                                      | Redis connection                                                                          |
+| `REDIS_PASSWORD`                                                  | *(optional)* Redis auth, if your instance requires it                                   |
+| `JWT_SECRET`                                                      | Signs/verifies auth tokens                                                                |
+| `WEBHOOK_SECRET`                                                  | HMAC key for validating payment webhook signatures                                        |
+| `ORDER_TIMEOUT_SECONDS`                                           | *(optional, default 30)* How long to wait for a rider before triggering reassignment    |
+| `REASSIGN_MAX_ATTEMPTS`                                           | *(optional, default 5)* How many times the reassignment worker retries before giving up |
+| `REASSIGN_RETRY_DELAY_SECONDS`                                    | *(optional, default 15)* Delay between reassignment retries                             |
 
 A note on Redis: if you're pointing at a managed instance (e.g. Redis Cloud), set its **eviction policy to `noeviction`** in its console. BullMQ needs this — under `volatile-lru` or similar, Redis can silently evict queue data under memory pressure and jobs disappear without error.
 
@@ -162,10 +162,10 @@ flowchart TB
 
 ### Where state lives
 
-| | MySQL | Redis |
-|---|---|---|
+|                | MySQL                                                                                                                                                   | Redis                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **What** | `users`, `vendors`, `riders`, `orders`, `order_status_history`, `payments`, `processed_webhook_events`, `menu_items`, `notifications` | rider geolocation (`GEOADD`/`GEOSEARCH`), available-rider set, per-order assignment locks, vendor menu cache, idempotency-key cache, BullMQ queues |
-| **Why** | Durable, relational, the record of what actually happened | Fast, ephemeral, cheap to recompute or safely lose |
+| **Why**  | Durable, relational, the record of what actually happened                                                                                               | Fast, ephemeral, cheap to recompute or safely lose                                                                                                     |
 
 Rule of thumb used throughout: **if losing it on restart would corrupt the record of what happened, it's MySQL. If it's a live signal that's cheap to recompute, it's Redis.**
 
@@ -271,25 +271,25 @@ Early order-mutating endpoints returned different hand-built partial objects (`{
 
 All endpoints except `GET /health`, `GET /vendors/:id/menu-items`, `POST /auth/signup`, and `POST /auth/login` require `Authorization: Bearer <JWT>`.
 
-| Method | Path | Role | Purpose |
-|---|---|---|---|
-| GET | `/health` | — | Liveness check |
-| POST | `/auth/signup` | — | Create account (auto-creates `vendors`/`riders` profile row for those roles) |
-| POST | `/auth/login` | — | Returns a JWT |
-| POST | `/orders` | customer | Create an order (`Idempotency-Key` header supported) |
-| GET | `/orders/:id` | owner (customer/vendor/rider on that order) | Order + full status history |
-| PATCH | `/orders/:id/vendor-response` | vendor (owner) | Accept or reject; accept triggers dispatch |
-| PATCH | `/orders/:id/rider-status` | rider (assigned) | `picked_up` / `delivered` |
-| PATCH | `/orders/:id/cancel` | customer (owner) | Cancel; frees an assigned rider |
-| POST | `/orders/:id/pay` | customer (owner) | Initiate a mock payment |
-| POST | `/webhooks/payments` | — (HMAC-signed) | Payment provider callback, idempotent |
-| POST | `/riders/:id/location` | rider (owner) | Update live GPS location |
-| PATCH | `/riders/:id/availability` | rider (owner) | Toggle online/offline |
-| GET | `/vendors/:id/menu-items` | — | Browse a vendor's menu |
-| POST | `/vendors/:id/menu-items` | vendor (owner) | Add a menu item |
-| PATCH | `/vendors/:id/menu-items/:itemId` | vendor (owner) | Edit a menu item |
-| PATCH | `/vendors/:id/location` | vendor (owner) | Set the vendor's dispatch origin point |
-| GET | `/notifications` | any authenticated user | Notifications addressed to you |
+| Method | Path                                | Role                                        | Purpose                                                                         |
+| ------ | ----------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
+| GET    | `/health`                         | —                                          | Liveness check                                                                  |
+| POST   | `/auth/signup`                    | —                                          | Create account (auto-creates`vendors`/`riders` profile row for those roles) |
+| POST   | `/auth/login`                     | —                                          | Returns a JWT                                                                   |
+| POST   | `/orders`                         | customer                                    | Create an order (`Idempotency-Key` header supported)                          |
+| GET    | `/orders/:id`                     | owner (customer/vendor/rider on that order) | Order + full status history                                                     |
+| PATCH  | `/orders/:id/vendor-response`     | vendor (owner)                              | Accept or reject; accept triggers dispatch                                      |
+| PATCH  | `/orders/:id/rider-status`        | rider (assigned)                            | `picked_up` / `delivered`                                                   |
+| PATCH  | `/orders/:id/cancel`              | customer (owner)                            | Cancel; frees an assigned rider                                                 |
+| POST   | `/orders/:id/pay`                 | customer (owner)                            | Initiate a mock payment                                                         |
+| POST   | `/webhooks/payments`              | — (HMAC-signed)                            | Payment provider callback, idempotent                                           |
+| POST   | `/riders/:id/location`            | rider (owner)                               | Update live GPS location                                                        |
+| PATCH  | `/riders/:id/availability`        | rider (owner)                               | Toggle online/offline                                                           |
+| GET    | `/vendors/:id/menu-items`         | —                                          | Browse a vendor's menu                                                          |
+| POST   | `/vendors/:id/menu-items`         | vendor (owner)                              | Add a menu item                                                                 |
+| PATCH  | `/vendors/:id/menu-items/:itemId` | vendor (owner)                              | Edit a menu item                                                                |
+| PATCH  | `/vendors/:id/location`           | vendor (owner)                              | Set the vendor's dispatch origin point                                          |
+| GET    | `/notifications`                  | any authenticated user                      | Notifications addressed to you                                                  |
 
 ---
 

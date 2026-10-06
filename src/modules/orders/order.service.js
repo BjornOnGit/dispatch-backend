@@ -50,9 +50,12 @@ async function respondToOrder({ orderId, vendorUserId, action }) {
 
     if (vendorLocation && vendorLocation.lat !== null && vendorLocation.lon !== null) {
       await dispatchService.dispatchOrder(orderId, vendorLocation.lat, vendorLocation.lon);
-    } else {
-      console.log(`[dispatch] vendor ${vendorId} has no location set, skipping auto-dispatch`);
+      // dispatchOrder may have just moved the order to rider_assigned — re-fetch so the
+      // response reflects that instead of the stale vendor_accepted snapshot above.
+      return orderRepository.getOrderById(orderId);
     }
+
+    console.log(`[dispatch] vendor ${vendorId} has no location set, skipping auto-dispatch`);
   }
 
   return updated;

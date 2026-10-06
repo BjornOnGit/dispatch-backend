@@ -7,6 +7,8 @@ const worker = require('../src/workers/order-timeout.worker');
 const TIMEOUT_MS = 2000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+worker.on('error', (err) => console.error('[test] worker connection error:', err.message));
+
 (async () => {
   let pass = false;
 
@@ -26,9 +28,15 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     await scheduleOrderTimeout(order.id, TIMEOUT_MS);
     console.log(`Scheduled timeout for order ${order.id} in ${TIMEOUT_MS}ms`);
 
-    await sleep(TIMEOUT_MS + 2000);
+    const timeoutJob = await timeoutQueue.getJob(`order-timeout-${order.id}`);
+    console.log('Timeout job state right after scheduling:', await timeoutJob.getState());
 
-    const jobs = await dispatchQueue.getJobs(['waiting', 'delayed', 'active', 'completed']);
+    await sleep(TIMEOUT_MS + 6000);
+
+    console.log('Timeout job state after waiting:', await timeoutJob.getState());
+    console.log('Timeout job attemptsMade:', timeoutJob.attemptsMade, '| failedReason:', timeoutJob.failedReason);
+
+    const jobs = await dispatchQueue.getJobs(['waiting', 'delayed', 'active', 'completed', 'failed']);
     const reassignJobs = jobs.filter((j) => j.name === 'reassign-order' && j.data.orderId === order.id);
 
     console.log('Reassignment jobs found for this order:', reassignJobs.length);
